@@ -7,6 +7,7 @@ import type {
 import SonarrAPI from '@server/api/servarr/sonarr';
 import TheMovieDb from '@server/api/themoviedb';
 import { ANIME_KEYWORD_ID } from '@server/api/themoviedb/constants';
+import type { TmdbTvDetails } from '@server/api/themoviedb/interfaces';
 import {
   MediaRequestStatus,
   MediaStatus,
@@ -16,6 +17,7 @@ import { getRepository } from '@server/datasource';
 import type { MediaRequestBody } from '@server/interfaces/api/requestInterfaces';
 import notificationManager, { Notification } from '@server/lib/notifications';
 import { Permission } from '@server/lib/permissions';
+import type { SonarrOverrideSettings } from '@server/lib/settings';
 import { getSettings } from '@server/lib/settings';
 import logger from '@server/logger';
 import { isEqual, truncate } from 'lodash';
@@ -1008,13 +1010,79 @@ export class MediaRequest {
             ? [...sonarrSettings.tags]
             : [];
 
+        const defaultFolder = rootFolder;
+        const defaultTags = tags;
+
+        const overrideSpecificity = (
+          override: SonarrOverrideSettings,
+          series: TmdbTvDetails
+        ) => {
+          let specificity = 1;
+          if (override.genres && override.genres.length > 0)
+            specificity *= series.genres.filter((genre) =>
+              override.genres?.includes(genre.id)
+            ).length;
+
+          if (override.keywords && override.keywords.length > 0)
+            specificity *= series.keywords.results.filter((keyword) =>
+              override.keywords?.includes(keyword.id)
+            ).length;
+
+          if (override.languages && override.languages.length > 0)
+            specificity *= series.languages.filter((lang) =>
+              override.languages?.includes(lang)
+            ).length;
+
+          return specificity;
+        };
+
+        let mostSpecificOverride:
+          | { index: number; specificity: number }
+          | undefined;
+
+        sonarrSettings.overrideSettings?.forEach((override, overrideIndex) => {
+          const thisSpecificity = overrideSpecificity(override, series);
+          if (thisSpecificity > (mostSpecificOverride?.specificity ?? 0)) {
+            mostSpecificOverride = {
+              index: overrideIndex,
+              specificity: thisSpecificity,
+            };
+          }
+        });
+
+        if (mostSpecificOverride && seriesType !== 'anime') {
+          const override = sonarrSettings.overrideSettings?.at(
+            mostSpecificOverride.index
+          ) ?? { tags: [] };
+          if (override.rootFolder) {
+            rootFolder = override.rootFolder || rootFolder;
+            logger.info(
+              `Override Settings matched root folder: ${rootFolder}`,
+              {
+                label: 'Media Request',
+                requestId: this.id,
+                mediaId: this.media.id,
+              }
+            );
+          }
+          if (override.tags.length > 0) {
+            tags = [...tags, ...override.tags];
+            logger.info(`Override Settings matched tags`, {
+              label: 'Media Request',
+              requestId: this.id,
+              mediaId: this.media.id,
+              tagIds: tags,
+            });
+          }
+        }
+
         if (
           this.rootFolder &&
           this.rootFolder !== '' &&
-          this.rootFolder !== rootFolder
+          this.rootFolder !== defaultFolder
         ) {
           rootFolder = this.rootFolder;
-          logger.info(`Request has an override root folder: ${rootFolder}`, {
+          logger.info(`Request has an override root folder: ${defaultFolder}`, {
             label: 'Media Request',
             requestId: this.id,
             mediaId: this.media.id,
@@ -1048,13 +1116,13 @@ export class MediaRequest {
           );
         }
 
-        if (this.tags && !isEqual(this.tags, tags)) {
+        if (this.tags && !isEqual(this.tags, defaultTags)) {
           tags = this.tags;
           logger.info(`Request has override tags`, {
             label: 'Media Request',
             requestId: this.id,
             mediaId: this.media.id,
-            tagIds: tags,
+            tagIds: defaultTags,
           });
         }
 

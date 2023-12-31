@@ -1,8 +1,15 @@
+import Button from '@app/components/Common/Button';
 import Modal from '@app/components/Common/Modal';
 import SensitiveInput from '@app/components/Common/SensitiveInput';
+import LanguageSelector from '@app/components/LanguageSelector';
+import { GenreSelector, KeywordSelector } from '@app/components/Selector';
 import globalMessages from '@app/i18n/globalMessages';
 import { Transition } from '@headlessui/react';
-import type { SonarrSettings } from '@server/lib/settings';
+import { PlusIcon, TrashIcon } from '@heroicons/react/24/solid';
+import type {
+  SonarrOverrideSettings,
+  SonarrSettings,
+} from '@server/lib/settings';
 import axios from 'axios';
 import { Field, Formik } from 'formik';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -75,7 +82,269 @@ const messages = defineMessages({
   animeTags: 'Anime Tags',
   notagoptions: 'No tags.',
   selecttags: 'Select tags',
+  genres: 'Genres',
+  originalLanguage: 'Original Language',
+  keywords: 'Keywords',
+  rule: 'Rule',
+  ruleSettings: 'Settings',
+  ruleOverrides: 'Override Rules',
+  defaultRootFolder: 'Default',
 });
+
+interface RuleEntryProps {
+  rule: SonarrOverrideSettings;
+  isTesting: boolean;
+  isValidated: boolean;
+  testResponse: TestResponse;
+  onUpdate: (rule: Partial<SonarrOverrideSettings>) => void;
+  onDelete: () => void;
+}
+
+const RuleEntry = ({
+  rule,
+  isTesting,
+  isValidated,
+  testResponse,
+  onUpdate,
+  onDelete,
+}: RuleEntryProps) => {
+  const intl = useIntl();
+
+  return (
+    <div className="col-span-1 rounded-lg bg-gray-800 px-4 py-2 shadow-md ring-1 ring-gray-700 ">
+      <div className="flex justify-between">
+        <div className="pt-2 text-lg">{intl.formatMessage(messages.rule)}</div>
+        <Button buttonType="ghost" onClick={() => onDelete()}>
+          <TrashIcon />
+        </Button>
+      </div>
+
+      <div className="form-row">
+        <label htmlFor="port" className="text-label">
+          {intl.formatMessage(messages.genres)}
+        </label>
+        <div className="form-input-area">
+          <GenreSelector
+            type="tv"
+            defaultValue={rule.genres?.join(',')}
+            isMulti
+            onChange={(value) => {
+              onUpdate({
+                genres: value?.map((v) => v.value),
+              });
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="form-row">
+        <label htmlFor="port" className="text-label">
+          {intl.formatMessage(messages.originalLanguage)}
+        </label>
+        <div className="form-input-area">
+          <LanguageSelector
+            value={rule.languages?.join('|')}
+            setFieldValue={(_key, value) => {
+              onUpdate({
+                languages: value.split('|'),
+              });
+            }}
+          />
+        </div>
+      </div>
+      <div className="form-row">
+        <label htmlFor="port" className="text-label">
+          {intl.formatMessage(messages.keywords)}
+        </label>
+        <div className="form-input-area">
+          <KeywordSelector
+            defaultValue={rule.keywords?.join(',')}
+            isMulti
+            onChange={(value) => {
+              onUpdate({
+                keywords: value?.map((v) => v.value),
+              });
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="form-row text-lg">
+        {intl.formatMessage(messages.ruleSettings)}
+      </div>
+      <div className="form-row">
+        <label htmlFor="rootFolder" className="text-label">
+          {intl.formatMessage(messages.rootfolder)}
+        </label>
+        <div className="form-input-area">
+          <Select<OptionType, false>
+            id="rootFolder"
+            name="rootFolder"
+            className="react-select-container"
+            classNamePrefix="react-select"
+            isDisabled={!isValidated || isTesting}
+            isLoading={isTesting}
+            options={testResponse.rootFolders.map((folder) => ({
+              value: folder.id,
+              label: folder.path,
+            }))}
+            value={
+              isTesting
+                ? []
+                : ([rule.rootFolder]
+                    .map((rootFolder) => {
+                      const foundFolder = testResponse.rootFolders.find(
+                        (folder) => folder.path === rootFolder
+                      );
+
+                      if (!foundFolder) {
+                        return undefined;
+                      }
+
+                      return {
+                        value: foundFolder.id,
+                        label: foundFolder.path,
+                      };
+                    })
+                    .filter((option) => option !== undefined) as OptionType[])
+            }
+            placeholder={
+              isTesting
+                ? intl.formatMessage(messages.loadingrootfolders)
+                : !isValidated
+                ? intl.formatMessage(messages.testFirstRootFolders)
+                : intl.formatMessage(messages.defaultRootFolder)
+            }
+            noOptionsMessage={() =>
+              intl.formatMessage(messages.testFirstRootFolders)
+            }
+            onChange={(value: OnChangeValue<OptionType, false>) => {
+              onUpdate({
+                rootFolder: value?.label,
+              });
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="form-row">
+        <label htmlFor="tags" className="text-label">
+          {intl.formatMessage(messages.tags)}
+        </label>
+        <div className="form-input-area">
+          <Select<OptionType, true>
+            options={
+              isValidated
+                ? testResponse.tags.map((tag) => ({
+                    label: tag.label,
+                    value: tag.id,
+                  }))
+                : []
+            }
+            isMulti
+            isDisabled={!isValidated || isTesting}
+            placeholder={
+              !isValidated
+                ? intl.formatMessage(messages.testFirstTags)
+                : isTesting
+                ? intl.formatMessage(messages.loadingTags)
+                : intl.formatMessage(messages.selecttags)
+            }
+            isLoading={isTesting}
+            className="react-select-container"
+            classNamePrefix="react-select"
+            value={
+              isTesting
+                ? []
+                : (rule.tags
+                    .map((tagId) => {
+                      const foundTag = testResponse.tags.find(
+                        (tag) => tag.id === tagId
+                      );
+
+                      if (!foundTag) {
+                        return undefined;
+                      }
+
+                      return {
+                        value: foundTag.id,
+                        label: foundTag.label,
+                      };
+                    })
+                    .filter((option) => option !== undefined) as OptionType[])
+            }
+            onChange={(value: OnChangeValue<OptionType, true>) => {
+              onUpdate({
+                tags: value.map(({ value }) => value),
+              });
+            }}
+            noOptionsMessage={() => intl.formatMessage(messages.notagoptions)}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface RulesSectionProps {
+  isTesting: boolean;
+  isValidated: boolean;
+  testResponse: TestResponse;
+
+  rules: SonarrOverrideSettings[];
+  onRulesChange: (rules: SonarrOverrideSettings[]) => void;
+}
+
+const RulesSection = ({
+  rules,
+  onRulesChange,
+  isTesting,
+  isValidated,
+  testResponse,
+}: RulesSectionProps) => {
+  const intl = useIntl();
+
+  return (
+    <div className="section space-y-3">
+      <div className="text-lg">
+        {intl.formatMessage(messages.ruleOverrides)}
+      </div>
+      {rules.map((rule, i) => (
+        <RuleEntry
+          key={i}
+          rule={rule}
+          isTesting={isTesting}
+          isValidated={isValidated}
+          testResponse={testResponse}
+          onUpdate={(rule) => {
+            const newRules = [...rules];
+            newRules[i] = {
+              ...newRules[i],
+              ...rule,
+            };
+            onRulesChange(newRules);
+          }}
+          onDelete={() => onRulesChange(rules.filter((r) => rule !== r))}
+        />
+      ))}
+
+      <div className="col-span-1 h-24 rounded-lg border-2 border-dashed border-gray-400 shadow sm:h-24">
+        <div className="flex h-full w-full items-center justify-center">
+          <Button
+            buttonType="ghost"
+            className="mt-3 mb-3"
+            onClick={() => {
+              onRulesChange([...rules, { tags: [] }]);
+            }}
+          >
+            <PlusIcon />
+            <span>New Override Rule</span>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface TestResponse {
   profiles: {
@@ -260,6 +529,7 @@ const SonarrModal = ({ onClose, sonarr, onSave }: SonarrModalProps) => {
           syncEnabled: sonarr?.syncEnabled ?? false,
           enableSearch: !sonarr?.preventSearch,
           tagRequests: sonarr?.tagRequests ?? false,
+          overrideSettings: sonarr?.overrideSettings ?? [],
         }}
         validationSchema={SonarrSettingsSchema}
         onSubmit={async (values) => {
@@ -303,7 +573,9 @@ const SonarrModal = ({ onClose, sonarr, onSave }: SonarrModalProps) => {
               syncEnabled: values.syncEnabled,
               preventSearch: !values.enableSearch,
               tagRequests: values.tagRequests,
+              overrideSettings: values.overrideSettings,
             };
+
             if (!sonarr) {
               await axios.post('/api/v1/settings/sonarr', submission);
             } else {
@@ -1028,6 +1300,16 @@ const SonarrModal = ({ onClose, sonarr, onSave }: SonarrModalProps) => {
                     />
                   </div>
                 </div>
+
+                <RulesSection
+                  rules={values.overrideSettings}
+                  onRulesChange={(values) =>
+                    setFieldValue('overrideSettings', values)
+                  }
+                  isTesting={isTesting}
+                  isValidated={isValidated}
+                  testResponse={testResponse}
+                />
               </div>
             </Modal>
           );
