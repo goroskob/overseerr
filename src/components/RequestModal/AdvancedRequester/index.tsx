@@ -54,6 +54,7 @@ interface AdvancedRequesterProps {
   defaultOverrides?: RequestOverrides;
   requestUser?: User;
   onChange: (overrides: RequestOverrides) => void;
+  tmdbId?: number;
 }
 
 const AdvancedRequester = ({
@@ -63,11 +64,12 @@ const AdvancedRequester = ({
   defaultOverrides,
   requestUser,
   onChange,
+  tmdbId,
 }: AdvancedRequesterProps) => {
   const intl = useIntl();
   const { user: currentUser, hasPermission: currentHasPermission } = useUser();
   const { data, error } = useSWR<ServiceCommonServer[]>(
-    `/api/v1/service/${type === 'movie' ? 'radarr' : 'sonarr'}`,
+    `/api/v1/service/${type === 'movie' ? 'radarr' : `sonarr`}`,
     {
       refreshInterval: 0,
       refreshWhenHidden: false,
@@ -100,7 +102,7 @@ const AdvancedRequester = ({
       selectedServer !== null
         ? `/api/v1/service/${
             type === 'movie' ? 'radarr' : 'sonarr'
-          }/${selectedServer}`
+          }/${selectedServer}${type == 'movie' ? '' : `/${tmdbId}`}`
         : null,
       {
         refreshInterval: 0,

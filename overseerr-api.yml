@@ -5926,6 +5926,37 @@ paths:
                     $ref: '#/components/schemas/SonarrSettings'
                   profiles:
                     $ref: '#/components/schemas/ServiceProfile'
+  /service/sonarr/{sonarrId}/{mediaId}:
+    get:
+      summary: Get Sonarr server quality profiles and root folders, applying a settings override for a Media
+      description: Returns a Sonarr server's quality profile and root folder details in a JSON object.
+      tags:
+        - service
+      parameters:
+        - in: path
+          name: sonarrId
+          required: true
+          schema:
+            type: number
+            example: 0
+        - in: path
+          name: mediaId
+          required: true
+          schema:
+            type: number
+            example: 0
+      responses:
+        '200':
+          description: Request successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  server:
+                    $ref: '#/components/schemas/SonarrSettings'
+                  profiles:
+                    $ref: '#/components/schemas/ServiceProfile'
   /service/sonarr/lookup/{tmdbId}:
     get:
       summary: Get series from Sonarr

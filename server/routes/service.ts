@@ -1,3 +1,4 @@
+import { OverrideSettings } from '@server/api/overridesettings';
 import RadarrAPI from '@server/api/servarr/radarr';
 import SonarrAPI from '@server/api/servarr/sonarr';
 import TheMovieDb from '@server/api/themoviedb';
@@ -142,6 +143,74 @@ serviceRoutes.get<{ sonarrId: string }>(
           activeAnimeLanguageProfileId:
             sonarrSettings.activeAnimeLanguageProfileId,
           activeTags: sonarrSettings.tags,
+          activeAnimeTags: sonarrSettings.animeTags,
+        },
+        profiles: profiles.map((profile) => ({
+          id: profile.id,
+          name: profile.name,
+        })),
+        rootFolders: rootFolders.map((folder) => ({
+          id: folder.id,
+          freeSpace: folder.freeSpace,
+          path: folder.path,
+          totalSpace: folder.totalSpace,
+        })),
+        languageProfiles: languageProfiles,
+        tags,
+      } as ServiceCommonServerWithDetails);
+    } catch (e) {
+      next({ status: 500, message: e.message });
+    }
+  }
+);
+
+serviceRoutes.get<{ sonarrId: string; mediaId: number }>(
+  '/sonarr/:sonarrId/:mediaId',
+  async (req, res, next) => {
+    const settings = getSettings();
+
+    const sonarrSettings = settings.sonarr.find(
+      (sonarr) => sonarr.id === Number(req.params.sonarrId)
+    );
+
+    if (!sonarrSettings) {
+      return next({
+        status: 404,
+        message: 'Sonarr server with provided ID does not exist.',
+      });
+    }
+
+    const sonarr = new SonarrAPI({
+      apiKey: sonarrSettings.apiKey,
+      url: SonarrAPI.buildUrl(sonarrSettings, '/api/v3'),
+    });
+
+    try {
+      const profiles = await sonarr.getProfiles();
+      const rootFolders = await sonarr.getRootFolders();
+      const languageProfiles = await sonarr.getLanguageProfiles();
+      const tags = await sonarr.getTags();
+
+      const { overrideDirectory, overrideTags } =
+        await new OverrideSettings().getOverrides(
+          req.params.mediaId,
+          sonarrSettings
+        );
+
+      return res.status(200).json({
+        server: {
+          id: sonarrSettings.id,
+          name: sonarrSettings.name,
+          is4k: sonarrSettings.is4k,
+          isDefault: sonarrSettings.isDefault,
+          activeDirectory: overrideDirectory ?? sonarrSettings.activeDirectory,
+          activeProfileId: sonarrSettings.activeProfileId,
+          activeAnimeProfileId: sonarrSettings.activeAnimeProfileId,
+          activeAnimeDirectory: sonarrSettings.activeAnimeDirectory,
+          activeLanguageProfileId: sonarrSettings.activeLanguageProfileId,
+          activeAnimeLanguageProfileId:
+            sonarrSettings.activeAnimeLanguageProfileId,
+          activeTags: overrideTags ?? sonarrSettings.tags,
           activeAnimeTags: sonarrSettings.animeTags,
         },
         profiles: profiles.map((profile) => ({

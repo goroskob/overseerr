@@ -701,6 +701,7 @@ const TvRequestModal = ({
           isAnime={data?.keywords.some(
             (keyword) => keyword.id === ANIME_KEYWORD_ID
           )}
+          tmdbId={data?.id}
           onChange={(overrides) => setRequestOverrides(overrides)}
           requestUser={editRequest?.requestedBy}
           defaultOverrides={
