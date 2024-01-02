@@ -2,73 +2,63 @@ import TheMovieDb from '@server/api/themoviedb';
 import type { TmdbTvDetails } from '@server/api/themoviedb/interfaces';
 import type { SonarrSettings } from '@server/lib/settings';
 import { type SonarrOverrideSettings } from '@server/lib/settings';
-import logger from '@server/logger';
 
 export class OverrideSettings {
-  async getOverrides(tmdbId: number, sonarrSettings: SonarrSettings) {
+  async getOverrides(
+    tmdbId: number,
+    sonarrSettings: SonarrSettings
+  ): Promise<SonarrOverrideSettings['override'] | undefined> {
     const series = await new TheMovieDb().getTvShow({ tvId: tmdbId });
 
-    let mostWeightedOverride:
-      | { settings: SonarrOverrideSettings; weight: number }
+    let heaviestOverride:
+      | { override: SonarrOverrideSettings['override']; weight: number }
       | undefined;
 
-    sonarrSettings.overrideSettings?.forEach((override) => {
-      const weight = this.computeOverrideWeight(override, series);
-      if (weight > (mostWeightedOverride?.weight ?? 0)) {
-        mostWeightedOverride = {
-          settings: override,
-          weight: weight,
+    sonarrSettings.overrides?.forEach((setting) => {
+      const weight = this.computeOverrideWeight(setting.rule, series);
+      if (!heaviestOverride || weight > heaviestOverride.weight) {
+        heaviestOverride = {
+          override: setting.override,
+          weight,
         };
       }
     });
 
-    let overrideDirectory: string | undefined;
-    let overrideTags: number[] | undefined;
-    if (mostWeightedOverride) {
-      if (mostWeightedOverride.settings.rootFolder) {
-        overrideDirectory = mostWeightedOverride.settings.rootFolder;
-        logger.info(
-          `Override Settings matched root folder: ${overrideDirectory}`,
-          {
-            mediaId: tmdbId,
-          }
-        );
-      }
-      if (mostWeightedOverride.settings.tags.length > 0) {
-        overrideTags = [
-          ...sonarrSettings.tags,
-          ...mostWeightedOverride.settings.tags,
-        ];
-        logger.info(`Override Settings matched tags`, {
-          label: 'Media Request',
-          mediaId: tmdbId,
-          tagIds: overrideTags,
-        });
-      }
-    }
+    const override = heaviestOverride?.override;
 
-    return { overrideDirectory, overrideTags };
+    console.log('All overrides:', sonarrSettings.overrides);
+    console.log('Found override:', override);
+
+    return (
+      override && {
+        ...override,
+        tags: override?.tags?.length ? override.tags : undefined,
+      }
+    );
   }
 
   private computeOverrideWeight(
-    override: SonarrOverrideSettings,
+    rule: SonarrOverrideSettings['rule'],
     series: TmdbTvDetails
   ) {
-    let weight = 1;
-    if (override.genres && override.genres.length > 0)
-      weight *= series.genres.filter((genre) =>
-        override.genres?.includes(genre.id)
-      ).length;
+    let weight = 0;
+    if (rule.genres && rule.genres.length > 0) {
+      weight =
+        (weight + 1) *
+        series.genres.filter((genre) => rule.genres?.includes(genre.id)).length;
+    }
 
-    if (override.keywords && override.keywords.length > 0)
-      weight *= series.keywords.results.filter((keyword) =>
-        override.keywords?.includes(keyword.id)
-      ).length;
+    if (rule.keywords && rule.keywords.length > 0)
+      weight =
+        (weight + 1) *
+        series.keywords.results.filter((keyword) =>
+          rule.keywords?.includes(keyword.id)
+        ).length;
 
-    if (override.languages && override.languages.length > 0)
-      weight *= series.languages.filter((lang) =>
-        override.languages?.includes(lang)
-      ).length;
+    if (rule.languages && rule.languages.length > 0)
+      weight =
+        (weight + 1) *
+        (rule.languages?.includes(series.original_language) ? 1 : 0);
 
     return weight;
   }

@@ -92,23 +92,52 @@ const messages = defineMessages({
 });
 
 interface RuleEntryProps {
-  rule: SonarrOverrideSettings;
+  setting: SonarrOverrideSettings;
   isTesting: boolean;
   isValidated: boolean;
   testResponse: TestResponse;
-  onUpdate: (rule: Partial<SonarrOverrideSettings>) => void;
+  onUpdateRule: (rule: Partial<SonarrOverrideSettings['rule']>) => void;
+  onUpdateOverride: (
+    override: Partial<SonarrOverrideSettings['override']>
+  ) => void;
   onDelete: () => void;
 }
 
 const RuleEntry = ({
-  rule,
+  setting,
   isTesting,
   isValidated,
   testResponse,
-  onUpdate,
+  onUpdateOverride,
+  onUpdateRule,
   onDelete,
 }: RuleEntryProps) => {
   const intl = useIntl();
+
+  const profileOptions = testResponse.profiles.map((value) => ({
+    value: value.id,
+    label: value.name,
+  }));
+  const rootFolderOptions = testResponse.rootFolders.map((folder) => ({
+    value: folder.id,
+    label: folder.path,
+  }));
+  const tagOptions = testResponse.tags.map((tag) => ({
+    label: tag.label,
+    value: tag.id,
+  }));
+
+  function getValue(
+    values: (string | number | undefined)[],
+    options: OptionType[],
+    optionKey: keyof OptionType
+  ): OptionType[] {
+    return isTesting
+      ? []
+      : options.filter((option) =>
+          values.some((value) => option[optionKey] === value)
+        );
+  }
 
   return (
     <div className="col-span-1 rounded-lg bg-gray-800 px-4 py-2 shadow-md ring-1 ring-gray-700 ">
@@ -126,10 +155,10 @@ const RuleEntry = ({
         <div className="form-input-area">
           <GenreSelector
             type="tv"
-            defaultValue={rule.genres?.join(',')}
+            defaultValue={setting.rule.genres?.join(',')}
             isMulti
             onChange={(value) => {
-              onUpdate({
+              onUpdateRule({
                 genres: value?.map((v) => v.value),
               });
             }}
@@ -143,9 +172,9 @@ const RuleEntry = ({
         </label>
         <div className="form-input-area">
           <LanguageSelector
-            value={rule.languages?.join('|')}
+            value={setting.rule.languages?.join('|')}
             setFieldValue={(_key, value) => {
-              onUpdate({
+              onUpdateRule({
                 languages: value.split('|'),
               });
             }}
@@ -158,10 +187,10 @@ const RuleEntry = ({
         </label>
         <div className="form-input-area">
           <KeywordSelector
-            defaultValue={rule.keywords?.join(',')}
+            defaultValue={setting.rule.keywords?.join(',')}
             isMulti
             onChange={(value) => {
-              onUpdate({
+              onUpdateRule({
                 keywords: value?.map((v) => v.value),
               });
             }}
@@ -178,36 +207,17 @@ const RuleEntry = ({
         </label>
         <div className="form-input-area">
           <Select<OptionType, false>
-            id="rootFolder"
-            name="rootFolder"
             className="react-select-container"
             classNamePrefix="react-select"
             isDisabled={!isValidated || isTesting}
             isLoading={isTesting}
-            options={testResponse.rootFolders.map((folder) => ({
-              value: folder.id,
-              label: folder.path,
-            }))}
-            value={
-              isTesting
-                ? []
-                : ([rule.rootFolder]
-                    .map((rootFolder) => {
-                      const foundFolder = testResponse.rootFolders.find(
-                        (folder) => folder.path === rootFolder
-                      );
-
-                      if (!foundFolder) {
-                        return undefined;
-                      }
-
-                      return {
-                        value: foundFolder.id,
-                        label: foundFolder.path,
-                      };
-                    })
-                    .filter((option) => option !== undefined) as OptionType[])
-            }
+            isClearable
+            options={rootFolderOptions}
+            value={getValue(
+              [setting.override.activeDirectory],
+              rootFolderOptions,
+              'label'
+            )}
             placeholder={
               isTesting
                 ? intl.formatMessage(messages.loadingrootfolders)
@@ -215,14 +225,15 @@ const RuleEntry = ({
                 ? intl.formatMessage(messages.testFirstRootFolders)
                 : intl.formatMessage(messages.defaultRootFolder)
             }
+            onChange={(value: OnChangeValue<OptionType, false>) => {
+              onUpdateOverride({
+                ...setting.override,
+                activeDirectory: value?.label,
+              });
+            }}
             noOptionsMessage={() =>
               intl.formatMessage(messages.testFirstRootFolders)
             }
-            onChange={(value: OnChangeValue<OptionType, false>) => {
-              onUpdate({
-                rootFolder: value?.label,
-              });
-            }}
           />
         </div>
       </div>
@@ -233,14 +244,9 @@ const RuleEntry = ({
         </label>
         <div className="form-input-area">
           <Select<OptionType, true>
-            options={
-              isValidated
-                ? testResponse.tags.map((tag) => ({
-                    label: tag.label,
-                    value: tag.id,
-                  }))
-                : []
-            }
+            className="react-select-container"
+            classNamePrefix="react-select"
+            options={tagOptions}
             isMulti
             isDisabled={!isValidated || isTesting}
             placeholder={
@@ -251,35 +257,52 @@ const RuleEntry = ({
                 : intl.formatMessage(messages.selecttags)
             }
             isLoading={isTesting}
-            className="react-select-container"
-            classNamePrefix="react-select"
-            value={
-              isTesting
-                ? []
-                : (rule.tags
-                    .map((tagId) => {
-                      const foundTag = testResponse.tags.find(
-                        (tag) => tag.id === tagId
-                      );
-
-                      if (!foundTag) {
-                        return undefined;
-                      }
-
-                      return {
-                        value: foundTag.id,
-                        label: foundTag.label,
-                      };
-                    })
-                    .filter((option) => option !== undefined) as OptionType[])
-            }
+            value={getValue(setting.override.tags ?? [], tagOptions, 'value')}
             onChange={(value: OnChangeValue<OptionType, true>) => {
-              onUpdate({
-                tags: value.map(({ value }) => value),
+              const tags = value.map(({ value }) => value);
+              onUpdateOverride({
+                tags: tags.length > 0 ? tags : undefined,
               });
             }}
             noOptionsMessage={() => intl.formatMessage(messages.notagoptions)}
           />
+        </div>
+      </div>
+
+      <div className="form-row">
+        <label htmlFor="activeProfileId" className="text-label">
+          {intl.formatMessage(messages.qualityprofile)}
+        </label>
+        <div className="form-input-area">
+          <div className="form-input-field">
+            <Select<OptionType, false>
+              className="react-select-container"
+              classNamePrefix="react-select"
+              isDisabled={!isValidated || isTesting}
+              isLoading={isTesting}
+              isClearable
+              options={profileOptions}
+              value={getValue(
+                [setting.override.activeProfileId],
+                profileOptions,
+                'value'
+              )}
+              placeholder={
+                !isValidated
+                  ? intl.formatMessage(messages.testFirstQualityProfiles)
+                  : intl.formatMessage(messages.selectQualityProfile)
+              }
+              onChange={(value: OnChangeValue<OptionType, false>) => {
+                onUpdateOverride({
+                  ...setting.override,
+                  activeProfileId: value?.value,
+                });
+              }}
+              noOptionsMessage={() =>
+                intl.formatMessage(messages.testFirstQualityProfiles)
+              }
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -291,16 +314,16 @@ interface RulesSectionProps {
   isValidated: boolean;
   testResponse: TestResponse;
 
-  rules: SonarrOverrideSettings[];
-  onRulesChange: (rules: SonarrOverrideSettings[]) => void;
+  overrides: SonarrOverrideSettings[];
+  onOverridesChange: (rules: SonarrOverrideSettings[]) => void;
 }
 
-const RulesSection = ({
-  rules,
-  onRulesChange,
+const OverridesSection = ({
+  overrides,
   isTesting,
   isValidated,
   testResponse,
+  onOverridesChange,
 }: RulesSectionProps) => {
   const intl = useIntl();
 
@@ -309,22 +332,40 @@ const RulesSection = ({
       <div className="text-lg">
         {intl.formatMessage(messages.ruleOverrides)}
       </div>
-      {rules.map((rule, i) => (
+      {overrides.map((rule, i) => (
         <RuleEntry
           key={i}
-          rule={rule}
+          setting={rule}
           isTesting={isTesting}
           isValidated={isValidated}
           testResponse={testResponse}
-          onUpdate={(rule) => {
-            const newRules = [...rules];
-            newRules[i] = {
-              ...newRules[i],
-              ...rule,
+          onUpdateOverride={(override) => {
+            const newOverrides = [...overrides];
+            const oldOverride = newOverrides[i];
+            newOverrides[i] = {
+              ...oldOverride,
+              override: {
+                ...oldOverride.override,
+                ...override,
+              },
             };
-            onRulesChange(newRules);
+            onOverridesChange(newOverrides);
           }}
-          onDelete={() => onRulesChange(rules.filter((r) => rule !== r))}
+          onUpdateRule={(rule) => {
+            const newOverrides = [...overrides];
+            const oldOverride = newOverrides[i];
+            newOverrides[i] = {
+              ...newOverrides[i],
+              rule: {
+                ...oldOverride.rule,
+                ...rule,
+              },
+            };
+            onOverridesChange(newOverrides);
+          }}
+          onDelete={() =>
+            onOverridesChange(overrides.filter((r) => rule !== r))
+          }
         />
       ))}
 
@@ -334,7 +375,13 @@ const RulesSection = ({
             buttonType="ghost"
             className="mt-3 mb-3"
             onClick={() => {
-              onRulesChange([...rules, { tags: [] }]);
+              onOverridesChange([
+                ...overrides,
+                {
+                  rule: {},
+                  override: {},
+                },
+              ]);
             }}
           >
             <PlusIcon />
@@ -529,7 +576,7 @@ const SonarrModal = ({ onClose, sonarr, onSave }: SonarrModalProps) => {
           syncEnabled: sonarr?.syncEnabled ?? false,
           enableSearch: !sonarr?.preventSearch,
           tagRequests: sonarr?.tagRequests ?? false,
-          overrideSettings: sonarr?.overrideSettings ?? [],
+          overrides: sonarr?.overrides ?? [],
         }}
         validationSchema={SonarrSettingsSchema}
         onSubmit={async (values) => {
@@ -573,7 +620,7 @@ const SonarrModal = ({ onClose, sonarr, onSave }: SonarrModalProps) => {
               syncEnabled: values.syncEnabled,
               preventSearch: !values.enableSearch,
               tagRequests: values.tagRequests,
-              overrideSettings: values.overrideSettings,
+              overrides: values.overrides,
             };
 
             if (!sonarr) {
@@ -1301,14 +1348,14 @@ const SonarrModal = ({ onClose, sonarr, onSave }: SonarrModalProps) => {
                   </div>
                 </div>
 
-                <RulesSection
-                  rules={values.overrideSettings}
-                  onRulesChange={(values) =>
-                    setFieldValue('overrideSettings', values)
-                  }
+                <OverridesSection
                   isTesting={isTesting}
                   isValidated={isValidated}
                   testResponse={testResponse}
+                  overrides={values.overrides}
+                  onOverridesChange={(values) =>
+                    setFieldValue('overrides', values)
+                  }
                 />
               </div>
             </Modal>

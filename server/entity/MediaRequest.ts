@@ -996,11 +996,11 @@ export class MediaRequest {
         let rootFolder =
           seriesType === 'anime' && sonarrSettings.activeAnimeDirectory
             ? sonarrSettings.activeAnimeDirectory
-            : overrides.overrideDirectory ?? sonarrSettings.activeDirectory;
+            : overrides?.activeDirectory ?? sonarrSettings.activeDirectory;
         let qualityProfile =
           seriesType === 'anime' && sonarrSettings.activeAnimeProfileId
             ? sonarrSettings.activeAnimeProfileId
-            : sonarrSettings.activeProfileId;
+            : overrides?.activeProfileId ?? sonarrSettings.activeProfileId;
         let languageProfile =
           seriesType === 'anime' && sonarrSettings.activeAnimeLanguageProfileId
             ? sonarrSettings.activeAnimeLanguageProfileId
@@ -1010,8 +1010,8 @@ export class MediaRequest {
             ? sonarrSettings.animeTags
               ? [...sonarrSettings.animeTags]
               : []
-            : overrides.overrideTags ?? sonarrSettings.tags
-            ? [...sonarrSettings.tags]
+            : overrides?.tags ?? sonarrSettings.tags
+            ? [...(overrides?.tags ?? sonarrSettings.tags)]
             : [];
 
         if (

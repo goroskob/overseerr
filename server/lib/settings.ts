@@ -79,16 +79,20 @@ export interface SonarrSettings extends DVRSettings {
   animeTags?: number[];
   enableSeasonFolders: boolean;
 
-  overrideSettings?: SonarrOverrideSettings[];
+  overrides?: SonarrOverrideSettings[];
 }
 
 export interface SonarrOverrideSettings {
-  genres?: number[];
-  languages?: string[];
-  keywords?: number[];
-
-  rootFolder?: string;
-  tags: number[];
+  rule: {
+    genres?: number[];
+    languages?: string[];
+    keywords?: number[];
+  };
+  override: {
+    activeDirectory?: string;
+    tags?: number[];
+    activeProfileId?: number;
+  };
 }
 
 interface Quota {

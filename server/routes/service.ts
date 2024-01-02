@@ -191,11 +191,10 @@ serviceRoutes.get<{ sonarrId: string; mediaId: number }>(
       const languageProfiles = await sonarr.getLanguageProfiles();
       const tags = await sonarr.getTags();
 
-      const { overrideDirectory, overrideTags } =
-        await new OverrideSettings().getOverrides(
-          req.params.mediaId,
-          sonarrSettings
-        );
+      const overrides = await new OverrideSettings().getOverrides(
+        req.params.mediaId,
+        sonarrSettings
+      );
 
       return res.status(200).json({
         server: {
@@ -203,14 +202,16 @@ serviceRoutes.get<{ sonarrId: string; mediaId: number }>(
           name: sonarrSettings.name,
           is4k: sonarrSettings.is4k,
           isDefault: sonarrSettings.isDefault,
-          activeDirectory: overrideDirectory ?? sonarrSettings.activeDirectory,
-          activeProfileId: sonarrSettings.activeProfileId,
+          activeDirectory:
+            overrides?.activeDirectory ?? sonarrSettings.activeDirectory,
+          activeProfileId:
+            overrides?.activeProfileId ?? sonarrSettings.activeProfileId,
           activeAnimeProfileId: sonarrSettings.activeAnimeProfileId,
           activeAnimeDirectory: sonarrSettings.activeAnimeDirectory,
           activeLanguageProfileId: sonarrSettings.activeLanguageProfileId,
           activeAnimeLanguageProfileId:
             sonarrSettings.activeAnimeLanguageProfileId,
-          activeTags: overrideTags ?? sonarrSettings.tags,
+          activeTags: overrides?.tags ?? sonarrSettings.tags,
           activeAnimeTags: sonarrSettings.animeTags,
         },
         profiles: profiles.map((profile) => ({
