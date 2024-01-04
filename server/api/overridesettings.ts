@@ -16,7 +16,7 @@ export class OverrideSettings {
 
     sonarrSettings.overrides?.forEach((setting) => {
       const weight = this.computeOverrideWeight(setting.rule, series);
-      if (!heaviestOverride || weight > heaviestOverride.weight) {
+      if (weight > (heaviestOverride?.weight ?? 0)) {
         heaviestOverride = {
           override: setting.override,
           weight,
