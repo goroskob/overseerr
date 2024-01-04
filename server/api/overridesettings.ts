@@ -2,32 +2,38 @@ import TheMovieDb from '@server/api/themoviedb';
 import type { TmdbTvDetails } from '@server/api/themoviedb/interfaces';
 import type { SonarrSettings } from '@server/lib/settings';
 import { type SonarrOverrideSettings } from '@server/lib/settings';
+import logger from '@server/logger';
+import _ from 'lodash';
 
 export class OverrideSettings {
   async getOverrides(
     tmdbId: number,
     sonarrSettings: SonarrSettings
   ): Promise<SonarrOverrideSettings['override'] | undefined> {
+    if (!sonarrSettings.overrides) {
+      logger.info('No Settings Overrides configured. Skipping overrides.', {
+        mediaId: tmdbId,
+      });
+
+      return Promise.resolve(undefined);
+    }
+
     const series = await new TheMovieDb().getTvShow({ tvId: tmdbId });
 
-    let heaviestOverride:
-      | { override: SonarrOverrideSettings['override']; weight: number }
-      | undefined;
+    const weightedOverrides = sonarrSettings.overrides
+      .map((setting) => ({
+        ...setting,
+        weight: this.computeOverrideWeight(setting.rule, series),
+      }))
+      .filter((overrides) => overrides.weight);
 
-    sonarrSettings.overrides?.forEach((setting) => {
-      const weight = this.computeOverrideWeight(setting.rule, series);
-      if (weight > (heaviestOverride?.weight ?? 0)) {
-        heaviestOverride = {
-          override: setting.override,
-          weight,
-        };
-      }
+    const override = _.maxBy(weightedOverrides, (o) => o.weight)?.override;
+
+    logger.info('Settings Override matched for a media', {
+      mediaId: tmdbId,
+      weightedOverrides,
+      override,
     });
-
-    const override = heaviestOverride?.override;
-
-    console.log('All overrides:', sonarrSettings.overrides);
-    console.log('Found override:', override);
 
     return (
       override && {
@@ -42,23 +48,36 @@ export class OverrideSettings {
     series: TmdbTvDetails
   ) {
     let weight = 0;
+
     if (rule.genres && rule.genres.length > 0) {
-      weight =
-        (weight + 1) *
-        series.genres.filter((genre) => rule.genres?.includes(genre.id)).length;
+      const ruleWeight = series.genres.filter((genre) =>
+        rule.genres?.includes(genre.id)
+      ).length;
+
+      if (!ruleWeight) return 0;
+
+      weight = (weight + 1) * ruleWeight;
     }
 
-    if (rule.keywords && rule.keywords.length > 0)
-      weight =
-        (weight + 1) *
-        series.keywords.results.filter((keyword) =>
-          rule.keywords?.includes(keyword.id)
-        ).length;
+    if (rule.keywords && rule.keywords.length > 0) {
+      const ruleWeight = series.keywords.results.filter((keyword) =>
+        rule.keywords?.includes(keyword.id)
+      ).length;
 
-    if (rule.languages && rule.languages.length > 0)
-      weight =
-        (weight + 1) *
-        (rule.languages?.includes(series.original_language) ? 1 : 0);
+      if (!ruleWeight) return 0;
+
+      weight = (weight + 1) * ruleWeight;
+    }
+
+    if (rule.languages && rule.languages.length > 0) {
+      const ruleWeight = rule.languages?.includes(series.original_language)
+        ? 1
+        : 0;
+
+      if (!ruleWeight) return 0;
+
+      weight = (weight + 1) * ruleWeight;
+    }
 
     return weight;
   }
