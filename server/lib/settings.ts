@@ -62,6 +62,7 @@ export interface DVRSettings {
   syncEnabled: boolean;
   preventSearch: boolean;
   tagRequests: boolean;
+  overrides?: OverrideSetting[];
 }
 
 export interface RadarrSettings extends DVRSettings {
@@ -78,11 +79,9 @@ export interface SonarrSettings extends DVRSettings {
   activeLanguageProfileId?: number;
   animeTags?: number[];
   enableSeasonFolders: boolean;
-
-  overrides?: SonarrOverrideSettings[];
 }
 
-export interface SonarrOverrideSettings {
+export interface OverrideSetting {
   rule: {
     genres?: number[];
     languages?: string[];
