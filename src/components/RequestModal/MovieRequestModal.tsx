@@ -345,6 +345,7 @@ const MovieRequestModal = ({
         <AdvancedRequester
           type="movie"
           is4k={is4k}
+          tmdbId={data?.id}
           onChange={(overrides) => {
             setRequestOverrides(overrides);
           }}

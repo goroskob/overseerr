@@ -1,15 +1,54 @@
 import TheMovieDb from '@server/api/themoviedb';
-import type { TmdbTvDetails } from '@server/api/themoviedb/interfaces';
-import { type DVRSettings, type OverrideSetting } from '@server/lib/settings';
+import { type TmdbKeyword } from '@server/api/themoviedb/interfaces';
+import {
+  type DVRSettings,
+  type OverrideSetting,
+  type RadarrSettings,
+  type SonarrSettings,
+} from '@server/lib/settings';
 import logger from '@server/logger';
 import _ from 'lodash';
 
+interface MediaDetails {
+  genres: {
+    id: number;
+    name: string;
+  }[];
+  keywords: TmdbKeyword[];
+  original_language: string;
+}
+
 export class OverrideSettings {
-  async getOverrides(
+  async getTvOverrides(
     tmdbId: number,
-    sonarrSettings: DVRSettings
+    settings: SonarrSettings
   ): Promise<OverrideSetting['override'] | undefined> {
-    if (!sonarrSettings.overrides) {
+    const series = await new TheMovieDb().getTvShow({ tvId: tmdbId });
+    return this.getOverridesForMedia(settings, tmdbId, {
+      genres: series.genres,
+      original_language: series.original_language,
+      keywords: series.keywords.results,
+    });
+  }
+
+  async getMovieOverrides(
+    tmdbId: number,
+    settings: RadarrSettings
+  ): Promise<OverrideSetting['override'] | undefined> {
+    const movie = await new TheMovieDb().getMovie({ movieId: tmdbId });
+    return this.getOverridesForMedia(settings, tmdbId, {
+      genres: movie.genres,
+      original_language: movie.original_language,
+      keywords: movie.keywords.keywords,
+    });
+  }
+
+  private getOverridesForMedia(
+    settings: DVRSettings,
+    tmdbId: number,
+    series: MediaDetails
+  ) {
+    if (!settings.overrides) {
       logger.info('No Settings Overrides configured. Skipping overrides.', {
         mediaId: tmdbId,
       });
@@ -17,9 +56,7 @@ export class OverrideSettings {
       return Promise.resolve(undefined);
     }
 
-    const series = await new TheMovieDb().getTvShow({ tvId: tmdbId });
-
-    const weightedOverrides = sonarrSettings.overrides
+    const weightedOverrides = settings.overrides
       .map((setting) => ({
         ...setting,
         weight: this.computeOverrideWeight(setting.rule, series),
@@ -44,7 +81,7 @@ export class OverrideSettings {
 
   private computeOverrideWeight(
     rule: OverrideSetting['rule'],
-    series: TmdbTvDetails
+    series: MediaDetails
   ) {
     let weight = 0;
 
@@ -59,7 +96,7 @@ export class OverrideSettings {
     }
 
     if (rule.keywords && rule.keywords.length > 0) {
-      const ruleWeight = series.keywords.results.filter((keyword) =>
+      const ruleWeight = series.keywords.filter((keyword) =>
         rule.keywords?.includes(keyword.id)
       ).length;
 

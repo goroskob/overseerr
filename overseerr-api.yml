@@ -5886,6 +5886,37 @@ paths:
                     $ref: '#/components/schemas/RadarrSettings'
                   profiles:
                     $ref: '#/components/schemas/ServiceProfile'
+  /service/radarr/{radarrId}/{mediaId}:
+    get:
+      summary: Get Radarr server quality profiles and root folders
+      description: Returns a Radarr server's quality profile and root folder details in a JSON object.
+      tags:
+        - service
+      parameters:
+        - in: path
+          name: radarrId
+          required: true
+          schema:
+            type: number
+            example: 0
+        - in: path
+          name: mediaId
+          required: true
+          schema:
+            type: number
+            example: 0
+      responses:
+        '200':
+          description: Request successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  server:
+                    $ref: '#/components/schemas/RadarrSettings'
+                  profiles:
+                    $ref: '#/components/schemas/ServiceProfile'
   /service/sonarr:
     get:
       summary: Get non-sensitive Sonarr server list

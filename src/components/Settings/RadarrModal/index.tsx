@@ -1,5 +1,6 @@
 import Modal from '@app/components/Common/Modal';
 import SensitiveInput from '@app/components/Common/SensitiveInput';
+import OverridesSection from '@app/components/Settings/OverridesSection';
 import globalMessages from '@app/i18n/globalMessages';
 import { Transition } from '@headlessui/react';
 import type { RadarrSettings } from '@server/lib/settings';
@@ -242,6 +243,7 @@ const RadarrModal = ({ onClose, radarr, onSave }: RadarrModalProps) => {
           syncEnabled: radarr?.syncEnabled ?? false,
           enableSearch: !radarr?.preventSearch,
           tagRequests: radarr?.tagRequests ?? false,
+          overrides: radarr?.overrides ?? [],
         }}
         validationSchema={RadarrSettingsSchema}
         onSubmit={async (values) => {
@@ -268,6 +270,7 @@ const RadarrModal = ({ onClose, radarr, onSave }: RadarrModalProps) => {
               syncEnabled: values.syncEnabled,
               preventSearch: !values.enableSearch,
               tagRequests: values.tagRequests,
+              overrides: values.overrides,
             };
             if (!radarr) {
               await axios.post('/api/v1/settings/radarr', submission);
@@ -733,6 +736,15 @@ const RadarrModal = ({ onClose, radarr, onSave }: RadarrModalProps) => {
                     />
                   </div>
                 </div>
+                <OverridesSection
+                  isTesting={isTesting}
+                  isValidated={isValidated}
+                  testResponse={testResponse}
+                  overrides={values.overrides}
+                  onOverridesChange={(values) =>
+                    setFieldValue('overrides', values)
+                  }
+                />
               </div>
             </Modal>
           );

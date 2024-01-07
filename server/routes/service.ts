@@ -80,6 +80,63 @@ serviceRoutes.get<{ radarrId: string }>(
   }
 );
 
+serviceRoutes.get<{ radarrId: string; mediaId: number }>(
+  '/radarr/:radarrId/:mediaId',
+  async (req, res, next) => {
+    const settings = getSettings();
+
+    const radarrSettings = settings.radarr.find(
+      (radarr) => radarr.id === Number(req.params.radarrId)
+    );
+
+    if (!radarrSettings) {
+      return next({
+        status: 404,
+        message: 'Radarr server with provided ID  does not exist.',
+      });
+    }
+
+    const radarr = new RadarrAPI({
+      apiKey: radarrSettings.apiKey,
+      url: RadarrAPI.buildUrl(radarrSettings, '/api/v3'),
+    });
+
+    const profiles = await radarr.getProfiles();
+    const rootFolders = await radarr.getRootFolders();
+    const tags = await radarr.getTags();
+
+    const overrides = await new OverrideSettings().getMovieOverrides(
+      req.params.mediaId,
+      radarrSettings
+    );
+
+    return res.status(200).json({
+      server: {
+        id: radarrSettings.id,
+        name: radarrSettings.name,
+        is4k: radarrSettings.is4k,
+        isDefault: radarrSettings.isDefault,
+        activeDirectory:
+          overrides?.activeDirectory ?? radarrSettings.activeDirectory,
+        activeProfileId:
+          overrides?.activeProfileId ?? radarrSettings.activeProfileId,
+        activeTags: overrides?.tags ?? radarrSettings.tags,
+      },
+      profiles: profiles.map((profile) => ({
+        id: profile.id,
+        name: profile.name,
+      })),
+      rootFolders: rootFolders.map((folder) => ({
+        id: folder.id,
+        freeSpace: folder.freeSpace,
+        path: folder.path,
+        totalSpace: folder.totalSpace,
+      })),
+      tags,
+    } as ServiceCommonServerWithDetails);
+  }
+);
+
 serviceRoutes.get('/sonarr', async (req, res) => {
   const settings = getSettings();
 
@@ -191,7 +248,7 @@ serviceRoutes.get<{ sonarrId: string; mediaId: number }>(
       const languageProfiles = await sonarr.getLanguageProfiles();
       const tags = await sonarr.getTags();
 
-      const overrides = await new OverrideSettings().getOverrides(
+      const overrides = await new OverrideSettings().getTvOverrides(
         req.params.mediaId,
         sonarrSettings
       );

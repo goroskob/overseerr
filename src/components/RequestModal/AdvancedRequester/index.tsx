@@ -102,7 +102,7 @@ const AdvancedRequester = ({
       selectedServer !== null
         ? `/api/v1/service/${
             type === 'movie' ? 'radarr' : 'sonarr'
-          }/${selectedServer}${type == 'movie' ? '' : `/${tmdbId}`}`
+          }/${selectedServer}/${tmdbId}`
         : null,
       {
         refreshInterval: 0,

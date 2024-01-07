@@ -703,9 +703,19 @@ export class MediaRequest {
           return;
         }
 
-        let rootFolder = radarrSettings.activeDirectory;
-        let qualityProfile = radarrSettings.activeProfileId;
-        let tags = radarrSettings.tags ? [...radarrSettings.tags] : [];
+        const overrides = await new OverrideSettings().getMovieOverrides(
+          this.media.tmdbId,
+          radarrSettings
+        );
+
+        let rootFolder =
+          overrides?.activeDirectory ?? radarrSettings.activeDirectory;
+        let qualityProfile =
+          overrides?.activeProfileId ?? radarrSettings.activeProfileId;
+        let tags =
+          overrides?.tags ?? radarrSettings.tags
+            ? [...(overrides?.tags ?? radarrSettings.tags)]
+            : [];
 
         if (
           this.rootFolder &&
@@ -988,7 +998,7 @@ export class MediaRequest {
           seriesType = sonarrSettings.animeSeriesType ?? 'anime';
         }
 
-        const overrides = await new OverrideSettings().getOverrides(
+        const overrides = await new OverrideSettings().getTvOverrides(
           media.tmdbId,
           sonarrSettings
         );
