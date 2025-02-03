@@ -3170,6 +3170,12 @@ paths:
         Updates a single slider and return the newly updated slider. Requires the `ADMIN` permission.
       tags:
         - settings
+      parameters:
+        - in: path
+          name: sliderId
+          required: true
+          schema:
+            type: number
       requestBody:
         required: true
         content:
@@ -3467,7 +3473,7 @@ paths:
                   results:
                     type: array
                     items:
-                    $ref: '#/components/schemas/User'
+                      $ref: '#/components/schemas/User'
     post:
       summary: Create new user
       description: |
@@ -5012,7 +5018,7 @@ paths:
                     - type: array
                       items:
                         type: number
-                        minimum: 1
+                        minimum: 0
                     - type: string
                       enum: [all]
                 is4k:
@@ -5118,7 +5124,7 @@ paths:
                   type: array
                   items:
                     type: number
-                    minimum: 1
+                    minimum: 0
                 is4k:
                   type: boolean
                   example: false
